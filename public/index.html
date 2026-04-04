@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agent Snow</title>
+    <meta name="description" content="Agent Snow — SnowOS embedded intelligence. Local-first, privacy-first AI companion." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Orbitron:wght@700;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+
+    <!-- ── Ambient Effects ───────────────────────────────── -->
+    <div id="ambient-snow" class="snow-layer ambient"></div>
+    <div id="ambient-breeze" class="breeze-layer" aria-hidden="true">
+      <span class="breeze-streak streak-a"></span>
+      <span class="breeze-streak streak-b"></span>
+      <span class="breeze-streak streak-c"></span>
+    </div>
+
+    <!-- ── Hidden backend data slots (never rendered) ──── -->
+    <span id="api-key-status"         aria-hidden="true" hidden></span>
+    <span id="model-status"           aria-hidden="true" hidden></span>
+    <span id="reasoning-status"       aria-hidden="true" hidden></span>
+    <span id="workspace-root"         aria-hidden="true" hidden></span>
+    <span id="engine-label"           aria-hidden="true" hidden></span>
+    <span id="theme-label"            aria-hidden="true" hidden></span>
+    <span id="active-role-label"      aria-hidden="true" hidden></span>
+    <span id="active-focus-label"     aria-hidden="true" hidden></span>
+    <span id="memory-count"           aria-hidden="true" hidden></span>
+    <span id="runtime-note"           aria-hidden="true" hidden></span>
+    <span id="runtime-command"        aria-hidden="true" hidden></span>
+    <span id="theme-note"             aria-hidden="true" hidden></span>
+    <span id="role-note"              aria-hidden="true" hidden></span>
+    <span id="focus-note"             aria-hidden="true" hidden></span>
+    <span id="privacy-note"           aria-hidden="true" hidden></span>
+    <span id="workspace-profile"      aria-hidden="true" hidden></span>
+    <ul   id="capability-list"        aria-hidden="true" hidden></ul>
+    <ul   id="workspace-list"         aria-hidden="true" hidden></ul>
+    <ul   id="hotspot-list"           aria-hidden="true" hidden></ul>
+    <ul   id="filetype-list"          aria-hidden="true" hidden></ul>
+    <ul   id="memory-list"            aria-hidden="true" hidden></ul>
+    <ul   id="audit-list"             aria-hidden="true" hidden></ul>
+    <span id="confirmation-state"     aria-hidden="true" hidden></span>
+    <!-- Background permission checkboxes (logic keeps them synced) -->
+    <input id="workspace-permission"  type="checkbox" aria-hidden="true" hidden />
+    <input id="cloud-permission"      type="checkbox" aria-hidden="true" hidden />
+    <input id="memory-permission"     type="checkbox" aria-hidden="true" hidden />
+    <input id="vault-permission"      type="checkbox" aria-hidden="true" hidden />
+    <!-- Background buttons still callable by JS -->
+    <button id="clear-memory"         aria-hidden="true" hidden></button>
+    <!-- Theme / role / focus trigger chips (kept hidden, controlled by settings panel) -->
+    <div aria-hidden="true" hidden>
+      <button data-theme-mode="auto"></button>
+      <button data-theme-mode="day"></button>
+      <button data-theme-mode="night"></button>
+      <button data-role="auto"></button>
+      <button data-role="Developer"></button>
+      <button data-role="Student"></button>
+      <button data-role="Analyst"></button>
+      <button data-role="Mentor"></button>
+      <button data-role="Executor"></button>
+      <button data-focus-mode="auto"></button>
+      <button data-focus-mode="Explore"></button>
+      <button data-focus-mode="Build"></button>
+      <button data-focus-mode="Ship"></button>
+      <button data-focus-mode="Learn"></button>
+      <button data-focus-mode="Debug"></button>
+    </div>
+
+    <!-- ── Boot Screen ──────────────────────────────────── -->
+    <div id="boot-screen" class="boot-screen" aria-hidden="true">
+      <div class="boot-glow"></div>
+      <div id="boot-snow" class="snow-layer boot"></div>
+      <div class="boot-core">
+        <p class="boot-eyebrow">Snow OS · Subsystem Initializing</p>
+        <div class="boot-mark">
+          <span class="boot-logo">AGENT SNOW</span>
+          <span class="boot-pulse"></span>
+        </div>
+        <h1 class="cinematic-quote">"Intelligence is the silence between the flakes."</h1>
+        <p id="boot-message" class="boot-message" aria-live="polite">Snow will guide you from now.</p>
+        <div class="boot-progress" aria-hidden="true">
+          <span class="boot-progress-fill"></span>
+        </div>
+        <div class="snow-logo-mark" aria-hidden="true" style="width: 140px; height: 140px; margin: 0 auto; font-size: 4rem; border-radius: 30px; animation: shimmer 3s infinite;">S</div>
+      </div>
+    </div>
+
+    <!-- ── App Shell ─────────────────────────────────────── -->
+    <div class="app-shell" id="app-shell" style="visibility: hidden;">
+
+      <!-- Login Overlay -->
+      <div id="login-overlay" class="login-overlay" aria-hidden="true">
+        <div class="login-card">
+          <div class="snow-logo-mark" aria-hidden="true" style="width: 80px; height: 80px; margin-bottom: 24px; font-size: 2.5rem; border-radius: 20px;">S</div>
+          <h2 style="margin-bottom: 8px; font-weight: 500; text-align: center;">Welcome to Agent Snow</h2>
+          <p style="color: var(--text-dim); text-align: center; margin-bottom: 24px; font-size: 0.9rem;">Please identify yourself to begin the session.</p>
+          
+          <form id="login-form" class="login-form">
+            <input type="text" id="nickname-input" placeholder="Enter your nickname..." required autocomplete="off" />
+            <button type="submit" class="send-btn" style="width: 100%; border-radius: 8px; justify-content: center; margin-top: 16px;">
+              Initialize Session
+            </button>
+          </form>
+
+          <p style="font-size: 0.75rem; color: var(--text-faint); margin-top: 24px; text-align: center;">Privacy Policy: Interactions are securely handled.</p>
+        </div>
+      </div>
+
+      <!-- LEFT SIDEBAR -->
+      <aside class="sidebar" id="sidebar">
+
+        <!-- Brand -->
+        <div class="sidebar-brand">
+          <div class="sidebar-logo-mark">
+            <div class="snow-logo-mark micro" aria-hidden="true">S</div>
+          </div>
+          <div class="sidebar-brand-text">
+            <span class="sidebar-title">Agent Snow</span>
+            <span class="sidebar-sub">Snow OS Intelligence</span>
+          </div>
+          <button class="sidebar-collapse-btn" id="sidebar-toggle" aria-label="Collapse sidebar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M15 18l-6-6 6-6"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- New Chat -->
+        <button class="sidebar-new-chat" id="new-chat-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+          New Session
+        </button>
+
+        <!-- Chat History -->
+        <div class="sidebar-section">
+          <p class="sidebar-section-label">Recent Sessions</p>
+          <div class="sidebar-history" id="sidebar-history">
+            <div class="sidebar-history-empty">Your conversations will appear here</div>
+          </div>
+        </div>
+
+        <!-- Status strip -->
+        <div class="sidebar-status-strip">
+          <div class="status-dot-row">
+            <span class="status-dot" id="runtime-status-dot"></span>
+            <span class="status-dot-label" id="runtime-status-label">Checking runtime...</span>
+          </div>
+          <div class="status-dot-row">
+            <span class="status-dot mode" id="mode-status-dot"></span>
+            <span class="status-dot-label" id="mode-status-label">Auto mode</span>
+          </div>
+        </div>
+
+        <!-- Settings Fly‑out trigger -->
+        <button class="sidebar-settings-btn" id="settings-toggle">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          Settings
+        </button>
+      </aside>
+
+      <!-- SETTINGS PANEL (slide in) -->
+      <div class="settings-panel" id="settings-panel">
+        <div class="settings-panel-header">
+          <h3>Settings</h3>
+          <button class="settings-close-btn" id="settings-close">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="settings-body">
+          <!-- Theme (Hidden, forced dark mode) -->
+          <div class="settings-group" style="display: none;">
+            <p class="settings-group-label">Theme</p>
+            <div class="settings-chip-row">
+              <button class="s-chip" data-theme-mode-ui="auto">Auto</button>
+              <button class="s-chip" data-theme-mode-ui="day">☀️ Day</button>
+              <button class="s-chip" data-theme-mode-ui="night">🌙 Night</button>
+            </div>
+          </div>
+
+          <!-- Focus -->
+          <div class="settings-group">
+            <p class="settings-group-label">Focus Mode</p>
+            <div class="settings-chip-row wrap">
+              <button class="s-chip" data-focus-mode-ui="auto">Auto</button>
+              <button class="s-chip" data-focus-mode-ui="Explore">🔭 Explore</button>
+              <button class="s-chip" data-focus-mode-ui="Build">🏗️ Build</button>
+              <button class="s-chip" data-focus-mode-ui="Ship">🚀 Ship</button>
+              <button class="s-chip" data-focus-mode-ui="Learn">📚 Learn</button>
+              <button class="s-chip" data-focus-mode-ui="Debug">🐛 Debug</button>
+            </div>
+          </div>
+
+          <!-- Role -->
+          <div class="settings-group">
+            <p class="settings-group-label">Companion Role</p>
+            <div class="settings-chip-row wrap">
+              <button class="s-chip" data-role-ui="auto">Auto</button>
+              <button class="s-chip" data-role-ui="Developer">💻 Developer</button>
+              <button class="s-chip" data-role-ui="Student">🎓 Student</button>
+              <button class="s-chip" data-role-ui="Analyst">📊 Analyst</button>
+              <button class="s-chip" data-role-ui="Mentor">🧠 Mentor</button>
+              <button class="s-chip" data-role-ui="Executor">⚡ Executor</button>
+            </div>
+          </div>
+
+          <!-- Privacy toggles -->
+          <div class="settings-group">
+            <p class="settings-group-label">Privacy &amp; Access</p>
+            <div class="settings-toggle-list">
+              <label class="settings-toggle-row">
+                <span class="settings-toggle-text">
+                  <strong>Workspace access</strong>
+                  <small>Inspect local files for grounded replies</small>
+                </span>
+                <div class="toggle-switch" id="ui-workspace-toggle">
+                  <div class="toggle-thumb"></div>
+                </div>
+              </label>
+              <label class="settings-toggle-row">
+                <span class="settings-toggle-text">
+                  <strong>Cloud model</strong>
+                  <small>Use Google Gemini when an API key is present</small>
+                </span>
+                <div class="toggle-switch" id="ui-cloud-toggle">
+                  <div class="toggle-thumb"></div>
+                </div>
+              </label>
+              <label class="settings-toggle-row">
+                <span class="settings-toggle-text">
+                  <strong>Session memory</strong>
+                  <small>Keep recent goals on this device</small>
+                </span>
+                <div class="toggle-switch active" id="ui-memory-toggle">
+                  <div class="toggle-thumb"></div>
+                </div>
+              </label>
+              <label class="settings-toggle-row">
+                <span class="settings-toggle-text">
+                  <strong>Encrypted vault</strong>
+                  <small>AES-GCM protect stored session data</small>
+                </span>
+                <div class="toggle-switch active" id="ui-vault-toggle">
+                  <div class="toggle-thumb"></div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Runtime Info (Hidden for clean UI) -->
+          <div class="settings-group" style="display: none;">
+            <p class="settings-group-label">Runtime</p>
+            <div class="settings-info-grid">
+              <span class="sig-key">API Key</span><span class="sig-val" id="ui-api-status">—</span>
+              <span class="sig-key">Model</span><span class="sig-val" id="ui-model">—</span>
+              <span class="sig-key">Engine</span><span class="sig-val" id="ui-engine">—</span>
+              <span class="sig-key">Root</span><span class="sig-val" id="ui-root">—</span>
+            </div>
+            <button class="settings-action-btn" id="settings-refresh-runtime">↺ Refresh runtime</button>
+          </div>
+
+          <!-- Memory Management -->
+          <div class="settings-group">
+            <button class="settings-action-btn danger" id="settings-clear-memory" style="width: 100%; justify-content: center;">🗑 Clear session memory</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MAIN CHAT AREA -->
+      <main class="chat-main">
+
+        <!-- Topbar -->
+        <header class="chat-topbar">
+          <button class="topbar-menu-btn" id="sidebar-toggle-mobile" aria-label="Menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 12h18M3 6h18M3 18h18"/>
+            </svg>
+          </button>
+          <div class="topbar-brand">
+            <div class="snow-logo-mark micro" aria-hidden="true">S</div>
+            <span>Agent Snow</span>
+          </div>
+          <div class="topbar-badges">
+            <span class="topbar-badge" id="topbar-source-pill">Local-first</span>
+            <span class="topbar-badge mode-badge" id="topbar-mode-pill">Auto</span>
+          </div>
+        </header>
+
+        <!-- Runtime warning banner -->
+        <p id="runtime-warning" class="runtime-warning-banner hidden"></p>
+
+        <!-- Chat thread -->
+        <div id="chat-history" class="chat-history">
+          <div class="chat-message agent-message welcome-message">
+            <div class="snow-logo-mark avatar" aria-hidden="true" style="animation: shimmer 3s infinite, scaleUpBlurIn 0.8s both;">S</div>
+            <div class="message-content">
+              <p class="welcome-greeting">Bring me the problem, the idea, or the rough draft.</p>
+              <p class="welcome-subcopy">I will help turn it into something clear, strong, and useful.</p>
+              <div class="quick-actions">
+                <button class="chip" type="button" data-prompt="Review this codebase like a strong engineering partner. Show me the biggest risks, the strongest parts, and the smartest next move." style="animation-delay: 0.1s; animation-fill-mode: both;">Code review</button>
+                <button class="chip" type="button" data-prompt="Turn this idea into a sharp execution plan with milestones, tradeoffs, and the first concrete action." style="animation-delay: 0.2s; animation-fill-mode: both;">Execution plan</button>
+                <button class="chip" type="button" data-prompt="Help me improve this project step by step as a thoughtful coding mentor, starting with the highest-leverage change." style="animation-delay: 0.3s; animation-fill-mode: both;">Build with me</button>
+                <button class="chip" type="button" data-prompt="Trace the most likely fault line in this codebase and show me the smallest safe fix path." style="animation-delay: 0.4s; animation-fill-mode: both;">Debug path</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Input console -->
+        <div class="input-dock">
+          <form id="task-form" class="input-form">
+            <div class="input-form-inner">
+              <label class="sr-only" for="task-input">Ask Agent Snow</label>
+              <textarea
+                id="task-input"
+                name="task"
+                rows="1"
+                placeholder="Describe what you want to build, fix, write, or figure out..."
+                autocomplete="off"
+              ></textarea>
+              <div class="input-actions">
+                <button id="submit-button" class="send-btn" type="submit" aria-label="Send">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <p id="input-footer" class="input-footer-note" style="opacity: 0.8; font-weight: 500; font-size: 0.65rem;">Agent Snow | Personal Intelligence | 2026 Snow OS</p>
+          </form>
+        </div>
+
+      </main>
+    </div><!-- /.app-shell -->
+
+    <!-- Loading overlay (shown during API call) -->
+    <div id="loading-overlay" class="loading-overlay hidden" aria-hidden="true">
+      <div class="loading-card">
+        <div class="snow-logo-mark avatar" aria-hidden="true">S</div>
+        <div class="loading-copy" aria-live="polite">
+          <p class="loading-label">Agent Snow</p>
+          <p id="loading-text">Shaping the clearest next move...</p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
