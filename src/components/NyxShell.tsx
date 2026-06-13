@@ -68,7 +68,7 @@ export default function NyxShell({
 
   if (simplifiedMode) {
     return (
-      <div className="bg-white border border-slate-200/80 rounded-2xl flex flex-col h-[525px] font-sans text-xs text-slate-700 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300">
+      <div className="bg-white border border-slate-200/80 rounded-2xl flex flex-col h-full font-sans text-xs text-slate-700 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300">
         
         {/* Simplified Header */}
         <div className="bg-slate-50/85 px-4 py-3 border-b border-slate-200/80 flex flex-wrap gap-2 items-center justify-between select-none">
@@ -282,7 +282,7 @@ export default function NyxShell({
 
   // Fallback / Advanced Mode Traditional Shell View
   return (
-    <div className="bg-zinc-950/70 backdrop-blur-md border border-zinc-805 rounded-xl flex flex-col h-[520px] font-mono text-xs text-zinc-300 overflow-hidden shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
+    <div className="bg-zinc-950/70 backdrop-blur-md border border-zinc-805 rounded-xl flex flex-col h-full font-mono text-xs text-zinc-300 overflow-hidden shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
       
       {/* Shell Header Bar */}
       <div className="bg-zinc-900 px-4 py-2.5 border-b border-zinc-805 flex flex-wrap gap-2 items-center justify-between select-none">

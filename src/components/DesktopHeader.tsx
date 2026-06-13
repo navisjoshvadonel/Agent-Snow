@@ -79,7 +79,7 @@ export default function DesktopHeader({
         </div>
         <div>
           <span className={`font-mono tracking-widest font-bold ${simplifiedMode ? 'text-slate-900 text-sm' : 'text-zinc-105'}`}>
-            {simplifiedMode ? 'SnowAI Hub' : 'SNOWOS'}
+            {simplifiedMode ? 'SnowOS Agent' : 'SNOWOS'}
           </span>
           <span className={`text-[9px] font-mono ml-2 px-1.5 py-0.5 select-none border rounded ${
             simplifiedMode 

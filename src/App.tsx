@@ -905,7 +905,7 @@ db_sync = true
   };
 
   return (
-    <div className={`min-h-screen theme-transition flex flex-col font-sans select-none antialiased ${
+    <div className={`h-screen theme-transition flex flex-col font-sans select-none antialiased ${
       simplifiedMode ? 'bg-slate-50 text-slate-850' : 'bg-zinc-950 text-zinc-300'
     }`}>
       {/* Top Header Menubar */}
@@ -922,7 +922,7 @@ db_sync = true
       />
 
       {/* Main OS Window Frame Desktop Workspace Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 flex flex-col space-y-4 justify-between">
+      <main className="flex-1 w-full p-4 flex flex-col space-y-4 min-h-0 justify-between">
         
         {/* Top visual Bento row containing the tab views */}
         <div className={`flex-1 min-h-0 border rounded-2xl p-1 transition-all duration-300 relative ${
@@ -930,10 +930,10 @@ db_sync = true
         }`}>
           
           {/* Active Route tabs rendering */}
-          <div className="h-full p-3">
+          <div className="h-full p-3 min-h-0">
             {activeTab === 'shell' && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-full items-start">
-                <div className="lg:col-span-2">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-full min-h-0">
+                <div className="lg:col-span-2 h-full min-h-0">
                   <NyxShell
                     chatMessages={chatMessages}
                     onSendMessage={handleSendMessage}
@@ -950,15 +950,17 @@ db_sync = true
                   />
                 </div>
                 {/* Visual sidebar resource display in shell frame */}
-                <div className="space-y-4">
-                  <SystemMonitorWidget
-                    metricsHistory={metricsHistory}
-                    status={systemStatus}
-                    simplifiedMode={simplifiedMode}
-                  />
-                  <div className={`p-4 rounded-2xl space-y-3.5 select-none transition-all duration-300 ${
+                <div className="flex flex-col h-full gap-4 min-h-0">
+                  <div className="flex-1 min-h-0">
+                    <SystemMonitorWidget
+                      metricsHistory={metricsHistory}
+                      status={systemStatus}
+                      simplifiedMode={simplifiedMode}
+                    />
+                  </div>
+                  <div className={`p-4 shrink-0 rounded-2xl space-y-3.5 select-none transition-all duration-300 ${
                     simplifiedMode 
-                      ? 'bg-white border border-slate-250/90 shadow-sm text-slate-700' 
+                      ? 'bg-white border border-slate-250/90 shadow-sm text-slate-707' 
                       : 'bg-zinc-950/70 backdrop-blur-md border border-zinc-805 rounded-xl text-zinc-300 font-mono shadow-[0_4px_30px_rgba(0,0,0,0.4)]'
                   }`}>
                     <div className={`font-bold border-b pb-2 uppercase tracking-wide text-[11px] ${
@@ -1050,7 +1052,7 @@ db_sync = true
           </div>
           <div>
             {simplifiedMode 
-              ? 'Powered by Gemini AI Companion • Operating Hub v1.2' 
+              ? 'Powered by Gemini AI Companion • SnowOS Agent v1.2' 
               : 'Powered by **Gemini-3.5-Flash** • SnowOS Secure Kernel Loop v1.2'
             }
           </div>
