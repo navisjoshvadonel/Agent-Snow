@@ -963,20 +963,20 @@ db_sync = true
                       ? 'bg-white border border-slate-250/90 shadow-sm text-slate-707' 
                       : 'bg-zinc-950/70 backdrop-blur-md border border-zinc-805 rounded-xl text-zinc-300 font-mono shadow-[0_4px_30px_rgba(0,0,0,0.4)]'
                   }`}>
-                    <div className={`font-bold border-b pb-2 uppercase tracking-wide text-[11px] ${
+                    <div className={`font-bold border-b pb-2 uppercase tracking-wide text-xs ${
                       simplifiedMode ? 'text-slate-800 border-slate-100' : 'text-zinc-200 border-zinc-805'
                     }`}>
                       {simplifiedMode ? 'User Profile Context' : 'Active Registers Context'}
                     </div>
-                    <div className="space-y-2 text-xs">
+                    <div className="space-y-2 text-sm">
                       <div>
-                        <span className={`block text-[9.5px] font-bold tracking-wider uppercase mb-0.5 ${simplifiedMode ? 'text-slate-400' : 'text-zinc-500'}`}>
+                        <span className={`block text-xs font-bold tracking-wider uppercase mb-0.5 ${simplifiedMode ? 'text-slate-400' : 'text-zinc-500'}`}>
                           {simplifiedMode ? 'OPERATOR_ROLE:' : 'CLASSIFIED_ROLE:'}
                         </span>
-                        <span className={`font-bold ${simplifiedMode ? 'text-blue-600' : 'text-cyan-450'}`}>{userModel.role}</span>
+                        <span className={`font-bold ${simplifiedMode ? 'text-blue-600' : 'text-cyan-455'}`}>{userModel.role}</span>
                       </div>
                       <div>
-                        <span className={`block text-[9.5px] font-bold tracking-wider uppercase mb-0.5 ${simplifiedMode ? 'text-slate-400' : 'text-zinc-500'}`}>
+                        <span className={`block text-xs font-bold tracking-wider uppercase mb-0.5 ${simplifiedMode ? 'text-slate-400' : 'text-zinc-500'}`}>
                           {simplifiedMode ? 'ACTIVE_DIRECTIVE:' : 'SYS_DIRECTIVES (Active):'}
                         </span>
                         <span className={simplifiedMode ? 'text-slate-600 font-medium' : 'text-zinc-305'}>

@@ -68,7 +68,7 @@ export default function NyxShell({
 
   if (simplifiedMode) {
     return (
-      <div className="bg-white border border-slate-200/80 rounded-2xl flex flex-col h-full font-sans text-xs text-slate-700 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300">
+      <div className="bg-white border border-slate-200/80 rounded-2xl flex flex-col h-full font-sans text-sm text-slate-700 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300">
         
         {/* Simplified Header */}
         <div className="bg-slate-50/85 px-4 py-3 border-b border-slate-200/80 flex flex-wrap gap-2 items-center justify-between select-none">
@@ -282,7 +282,7 @@ export default function NyxShell({
 
   // Fallback / Advanced Mode Traditional Shell View
   return (
-    <div className="bg-zinc-950/70 backdrop-blur-md border border-zinc-805 rounded-xl flex flex-col h-full font-mono text-xs text-zinc-300 overflow-hidden shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
+    <div className="bg-zinc-950/70 backdrop-blur-md border border-zinc-805 rounded-xl flex flex-col h-full font-mono text-sm text-zinc-300 overflow-hidden shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
       
       {/* Shell Header Bar */}
       <div className="bg-zinc-900 px-4 py-2.5 border-b border-zinc-805 flex flex-wrap gap-2 items-center justify-between select-none">
@@ -354,12 +354,12 @@ export default function NyxShell({
         
         {/* Welcome message banner */}
         <div className="border border-zinc-805 p-3.5 rounded-lg bg-zinc-900/40 text-zinc-400 leading-relaxed border-l-2 border-l-cyan-500 select-none">
-          <div className="font-bold text-zinc-200 mb-1 tracking-widest text-[10px]">SNOWOS COGNITIVE SYSTEM v1.2</div>
-          <span className="text-[11px] block text-zinc-400">
+          <div className="font-bold text-zinc-200 mb-1 tracking-widest text-xs">SNOWOS COGNITIVE SYSTEM v1.2</div>
+          <span className="text-sm block text-zinc-400">
             Welcome to the Nyx secure shell terminal context. Here, you communicate directly with SnowOS. 
             Inputs can be standard shell syntax or natural human objectives.
           </span>
-          <span className="font-bold text-cyan-400 text-[10px] mt-2 block">
+          <span className="font-bold text-cyan-400 text-xs mt-2 block">
             Suggested directives: "Build Python BeautifulSoup scraper" | "Wipe system build logs"
           </span>
         </div>
@@ -376,13 +376,13 @@ export default function NyxShell({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.98, transition: { duration: 0.12 } }}
                   transition={{ duration: 0.2, ease: "easeOut" }}
-                  className="flex flex-col text-[11px] w-full"
+                  className="flex flex-col text-sm w-full"
                 >
                   <div className="flex items-center text-cyan-400/85 mb-1 select-none font-bold">
                     <span>snow-agent@snowos:~$</span>
-                    <span className="text-zinc-550 font-normal ml-2 text-[10px]">{msg.timestamp}</span>
+                    <span className="text-zinc-550 font-normal ml-2 text-xs">{msg.timestamp}</span>
                   </div>
-                  <div className="text-zinc-100 pl-4 border-l border-zinc-800 whitespace-pre-wrap">{msg.text}</div>
+                  <div className="text-zinc-100 pl-4 border-l border-zinc-800 whitespace-pre-wrap text-sm">{msg.text}</div>
                 </motion.div>
               );
             }
@@ -397,14 +397,14 @@ export default function NyxShell({
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.98, transition: { duration: 0.12 } }}
                 transition={{ duration: 0.2, ease: "easeOut" }}
-                className="flex flex-col text-[11px] bg-zinc-900/20 p-2.5 border border-zinc-900 rounded-lg w-full"
+                className="flex flex-col text-sm bg-zinc-900/20 p-2.5 border border-zinc-900 rounded-lg w-full"
               >
                 <div className="flex items-center justify-between mb-1.5 select-none font-bold">
                   <div className="flex items-center">
                     <span className={isKernel ? 'text-purple-400' : 'text-cyan-400'}>
                       {isKernel ? '● [System Logs]' : '● [Nyx Agent]'}
                     </span>
-                    <span className="text-zinc-555 font-normal ml-3 text-[10px]">{msg.timestamp}</span>
+                    <span className="text-zinc-555 font-normal ml-3 text-xs">{msg.timestamp}</span>
                   </div>
                   {!isKernel && onSynthesizeSpeech && (
                     <button
@@ -414,11 +414,11 @@ export default function NyxShell({
                       title="Speak text with Gemini Voice synth"
                     >
                       <Volume2 className="w-3.5 h-3.5" />
-                      <span className="text-[9px] font-normal font-sans uppercase tracking-[0.05em]">Speak</span>
+                      <span className="text-[10px] font-normal font-sans uppercase tracking-[0.05em]">Speak</span>
                     </button>
                   )}
                 </div>
-                <div className="pl-1.5 text-zinc-300 leading-relaxed whitespace-pre-wrap font-mono">
+                <div className="pl-1.5 text-zinc-300 leading-relaxed whitespace-pre-wrap font-mono text-sm">
                   {msg.text}
                 </div>
               </motion.div>
@@ -456,7 +456,7 @@ export default function NyxShell({
 
       {/* Input Action Form */}
       <form onSubmit={handleSubmit} className="p-3 bg-zinc-900 border-t border-zinc-800 flex items-center space-x-2">
-        <div className="text-cyan-400 font-bold select-none pl-1 text-[11px]">
+        <div className="text-cyan-400 font-bold select-none pl-1 text-sm">
           snow-agent@snowos:~$
         </div>
         
@@ -465,7 +465,7 @@ export default function NyxShell({
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           placeholder="Enter shell commands or ask Snow Agent..."
-          className="flex-1 bg-transparent border-0 outline-none text-zinc-100 font-mono text-xs placeholder-zinc-600 focus:ring-0"
+          className="flex-1 bg-transparent border-0 outline-none text-zinc-100 font-mono text-sm placeholder-zinc-650 focus:ring-0"
         />
 
         <button
