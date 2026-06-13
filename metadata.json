@@ -1,0 +1,6 @@
+{
+  "name": "SnowOS",
+  "description": "An interactive, AI-native Operating System managed by Snow Agent and powered by the Nyx Conversation Engine.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
