@@ -3,14 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import DesktopHeader from './components/DesktopHeader';
 import SystemMonitorWidget from './components/SystemMonitorWidget';
 import MemoryCoreManager from './components/MemoryCoreManager';
 import TaskEngineConsole from './components/TaskEngineConsole';
 import VirtualWorkspace from './components/VirtualWorkspace';
 import NyxShell from './components/NyxShell';
-import { Message, ResourceMetric, SystemStatus, MemoryCore, UserModel, TaskPlan, VirtualFile, MemoryItem, LearningState, OSPlugin } from './types';
+import { Message, ResourceMetric, SystemStatus, MemoryCore, UserModel, TaskPlan, VirtualFile, MemoryItem, LearningState, OSPlugin, Subtask } from './types';
 
 // Baseline seed workspace files
 const SEED_WORKSPACE: VirtualFile[] = [
@@ -68,6 +68,86 @@ export default function App() {
   const [modelName, setModelName] = useState<string>('gemini-3.5-flash');
   const [thinkingEnabled, setThinkingEnabled] = useState<boolean>(false);
   const [simplifiedMode, setSimplifiedMode] = useState<boolean>(true);
+
+  // Manage WebSocket connection
+  const wsRef = useRef<WebSocket | null>(null);
+
+  useEffect(() => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}`;
+    
+    console.log(`[SnowOS Client] Connecting to WebSocket at ${wsUrl}`);
+    
+    let socket: WebSocket;
+    let reconnectTimeout: NodeJS.Timeout;
+    
+    const connect = () => {
+      socket = new WebSocket(wsUrl);
+      
+      socket.onopen = () => {
+        console.log('[SnowOS Client] WebSocket connection established.');
+      };
+
+      socket.onclose = () => {
+        console.log('[SnowOS Client] WebSocket connection closed. Retrying in 3s...');
+        reconnectTimeout = setTimeout(connect, 3000);
+      };
+
+      socket.onerror = (err) => {
+        console.error('[SnowOS Client] WebSocket error:', err);
+      };
+
+      socket.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload.type === 'file_changed') {
+            const { file } = payload;
+            setVirtualFiles((files) => {
+              const fileExists = files.some(f => f.path === file.path);
+              if (fileExists) {
+                return files.map(f => f.path === file.path ? file : f);
+              } else {
+                return [...files, file];
+              }
+            });
+          } else if (payload.type === 'file_deleted') {
+            const { path } = payload;
+            setVirtualFiles((files) => files.filter(f => f.path !== path));
+          }
+        } catch (err) {
+          // ignore or log non-JSON messages
+        }
+      };
+
+      wsRef.current = socket;
+    };
+
+    connect();
+
+    return () => {
+      if (socket) {
+        socket.close();
+      }
+      clearTimeout(reconnectTimeout);
+      wsRef.current = null;
+    };
+  }, []);
+
+  // Fetch initial files from physical workspace
+  useEffect(() => {
+    const fetchFiles = async () => {
+      try {
+        const res = await fetch('/api/snow-agent/files');
+        const data = await res.json();
+        if (data.success && Array.isArray(data.files)) {
+          setVirtualFiles(data.files);
+        }
+      } catch (err) {
+        console.error('[SnowOS Client] Failed to fetch workspace files:', err);
+      }
+    };
+    fetchFiles();
+  }, []);
 
   // System Status State
   const [systemStatus, setSystemStatus] = useState<SystemStatus>({
@@ -452,11 +532,6 @@ db_sync = true
     }
 
     setSubtaskProgress(0);
-    const intervalTime = 100;
-    const effectiveDuration = throttleActive ? subtask.duration * 1.8 : subtask.duration;
-    const steps = effectiveDuration / intervalTime;
-    let currentStep = 0;
-
     const assignedAgent = getAgentNameForTask(subtask.actionText);
 
     // Map agents actively
@@ -464,59 +539,167 @@ db_sync = true
       a.name === assignedAgent ? { ...a, activeTasks: 1 } : { ...a, activeTasks: 0 }
     )));
 
+    // Define simulation runner fallback function
+    const runSimulatedStep = () => {
+      const intervalTime = 100;
+      const effectiveDuration = throttleActive ? subtask.duration * 1.8 : subtask.duration;
+      const steps = effectiveDuration / intervalTime;
+      let currentStep = 0;
+
+      const timer = setInterval(() => {
+        if (isFailureSimulated && index === 1 && retryCounter < 1) {
+          clearInterval(timer);
+          runFailureSimulationLoop(index);
+          return;
+        }
+
+        currentStep++;
+        const percent = Math.min((currentStep / steps) * 100, 100);
+        setSubtaskProgress(percent);
+
+        if (currentStep >= steps) {
+          clearInterval(timer);
+
+          const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+          const completedSubtaskLog = `[SUCCESS] PID ${1000 + index} -> Executed action (Simulated): "${subtask.actionText}"`;
+          
+          setChatMessages((msgs) => [
+            ...msgs,
+            {
+              id: `step_${index}_${Date.now()}`,
+              role: 'kernel',
+              text: completedSubtaskLog,
+              timestamp
+            }
+          ]);
+
+          setDiagnosticLogs((prev) => [
+            ...prev,
+            `[VERIFY] Rule: "Check exit code == 0 & artifact existence" -> PASSED`,
+            `[REPAIR] State verified. Continuing to future nodes.`
+          ]);
+
+          setCurrentPlan((prev) => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              currentStepIndex: prev.currentStepIndex + 1
+            };
+          });
+        }
+      }, intervalTime);
+
+      return () => {
+        clearInterval(timer);
+      };
+    };
+
     // Dynamic Observability log start
     setDiagnosticLogs((prev) => [
       ...prev,
       `[EXECUTE] Thread assigned PID ${4000 + index} to Agent: ${assignedAgent}`,
-      `[OBSERVE] Running tool command: "${subtask.actionText}"`
+      `[OBSERVE] Running real shell command: "${subtask.actionText}"`
     ]);
 
-    const timer = setInterval(() => {
-      // If failure is simulated and we have entered step 1
-      if (isFailureSimulated && index === 1 && retryCounter < 1) {
-        clearInterval(timer);
-        runFailureSimulationLoop(index);
-        return;
-      }
+    const socket = wsRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      console.warn('[SnowOS Client] WebSocket offline. Falling back to simulated run.');
+      const cleanupSim = runSimulatedStep();
+      return cleanupSim;
+    }
 
-      currentStep++;
-      const percent = Math.min((currentStep / steps) * 100, 100);
-      setSubtaskProgress(percent);
+    const handleSocketMessage = (event: MessageEvent) => {
+      try {
+        const payload = JSON.parse(event.data);
+        const { type, planId, stepId, stream, data, exitCode, error } = payload;
 
-      if (currentStep >= steps) {
-        clearInterval(timer);
+        if (planId !== currentPlan.id || stepId !== subtask.id) {
+          return;
+        }
 
-        const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-        const completedSubtaskLog = `[SUCCESS] PID ${1000 + index} -> Executed action: "${subtask.actionText}"`;
-        
-        setChatMessages((msgs) => [
-          ...msgs,
-          {
-            id: `step_${index}_${Date.now()}`,
-            role: 'kernel',
-            text: completedSubtaskLog,
-            timestamp
-          }
-        ]);
-
-        setDiagnosticLogs((prev) => [
-          ...prev,
-          `[VERIFY] Rule: "Check exit code == 0 & artifact existence" -> PASSED`,
-          `[REPAIR] State verified. Continuing to future nodes.`
-        ]);
-
-        setCurrentPlan((prev) => {
-          if (!prev) return null;
-          return {
+        if (type === 'log') {
+          const lines = data.split('\n');
+          setDiagnosticLogs((prev) => [
             ...prev,
-            currentStepIndex: prev.currentStepIndex + 1
-          };
-        });
+            ...lines.filter((l: string) => l.trim() !== "").map((l: string) => `[${stream.toUpperCase()}] ${l}`)
+          ]);
+        }
+
+        else if (type === 'status') {
+          if (exitCode === 0) {
+            const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+            const completedSubtaskLog = `[SUCCESS] PID ${4000 + index} -> Executed action: "${subtask.actionText}"`;
+            
+            setChatMessages((msgs) => [
+              ...msgs,
+              {
+                id: `step_${index}_${Date.now()}`,
+                role: 'kernel',
+                text: completedSubtaskLog,
+                timestamp
+              }
+            ]);
+
+            setDiagnosticLogs((prev) => [
+              ...prev,
+              `[VERIFY] Rule: "Check exit code == 0" -> PASSED`,
+              `[REPAIR] State verified. Continuing to future nodes.`
+            ]);
+
+            setSubtaskProgress(100);
+
+            setCurrentPlan((prev) => {
+              if (!prev) return null;
+              return {
+                ...prev,
+                currentStepIndex: prev.currentStepIndex + 1
+              };
+            });
+          } else {
+            setDiagnosticLogs((prev) => [
+              ...prev,
+              `[FAILURE] PID ${4000 + index} exited with code ${exitCode}. Error: ${error || 'Unknown error'}`
+            ]);
+
+            if (isFailureSimulated && retryCounter < 1) {
+              runFailureSimulationLoop(index);
+            } else {
+              setChatMessages((msgs) => [
+                ...msgs,
+                {
+                  id: `err_step_${index}_${Date.now()}`,
+                  role: 'kernel',
+                  text: `[DANGER] PID ${4000 + index} failed with exit code ${exitCode}. Thread paused.`,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+                }
+              ]);
+              setCurrentPlan((prev) => prev ? { ...prev, status: 'waiting_authorization' } : null);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[SnowOS Client] Failed parsing socket message:', err);
       }
-    }, intervalTime);
+    };
+
+    socket.addEventListener('message', handleSocketMessage);
+
+    socket.send(JSON.stringify({
+      type: 'execute',
+      planId: currentPlan.id,
+      stepId: subtask.id,
+      command: subtask.actionText
+    }));
+
+    let prog = 0;
+    const progInterval = setInterval(() => {
+      prog = Math.min(prog + 5, 95);
+      setSubtaskProgress(prog);
+    }, 200);
 
     return () => {
-      clearInterval(timer);
+      socket.removeEventListener('message', handleSocketMessage);
+      clearInterval(progInterval);
       setAgentsList((prev) => prev.map((a) => ({ ...a, activeTasks: 0 })));
     };
   }, [currentPlan?.id, currentPlan?.status, currentPlan?.currentStepIndex, isFailureSimulated, retryCounter, throttleActive]);
@@ -575,21 +758,11 @@ db_sync = true
         if (payload.workspaceUpdate) {
           const { action, path: rawPath, name, content } = payload.workspaceUpdate;
           if (action === 'create' || action === 'edit') {
-            setVirtualFiles((files) => {
-              const fileExists = files.some(f => f.path === rawPath);
-              if (fileExists) {
-                return files.map(f => f.path === rawPath ? { ...f, content, size: `${content.length} bytes`, updatedAt: new Date().toISOString().replace('T', ' ').slice(0, 19) } : f);
-              } else {
-                return [...files, {
-                  name,
-                  path: rawPath,
-                  content,
-                  type: 'file',
-                  size: `${content.length} bytes`,
-                  updatedAt: new Date().toISOString().replace('T', ' ').slice(0, 19)
-                }];
-              }
-            });
+            if (action === 'create') {
+              handleAddFile(name, content, rawPath);
+            } else {
+              handleUpdateFileContent(rawPath, content);
+            }
             
             // Append visual kernel notification
             setChatMessages((msgs) => [
@@ -602,7 +775,7 @@ db_sync = true
               }
             ]);
           } else if (action === 'delete') {
-            setVirtualFiles((files) => files.filter(f => f.path !== rawPath));
+            handleDeleteFile(rawPath);
             setChatMessages((msgs) => [
               ...msgs,
               {
@@ -798,6 +971,16 @@ db_sync = true
 
   const handleHaltPlan = (planId: string) => {
     if (currentPlan && currentPlan.id === planId) {
+      const index = currentPlan.currentStepIndex;
+      const subtask = currentPlan.subtasks[index];
+      if (subtask && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          type: 'kill',
+          planId: currentPlan.id,
+          stepId: subtask.id
+        }));
+      }
+
       setCurrentPlan(null);
       // Print notification
       setChatMessages((msgs) => [
@@ -814,38 +997,52 @@ db_sync = true
   };
 
   // Workspace filesystem modify APIs
-  const handleAddFile = (name: string, content: string, path: string) => {
-    const nextF: VirtualFile = {
-      name,
-      content,
-      path,
-      type: 'file',
-      size: `${Math.ceil(content.length / 10)} bytes`,
-      updatedAt: new Date().toISOString().replace('T', ' ').slice(0, 19)
-    };
-    setVirtualFiles((files) => [...files, nextF]);
-    setMemoryCore((prev) => ({
-      ...prev,
-      shortTerm: [...prev.shortTerm, `Created custom node register: ${path}`]
-    }));
+  const handleAddFile = async (name: string, content: string, path: string) => {
+    try {
+      await fetch('/api/snow-agent/files/write', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path, content })
+      });
+      setMemoryCore((prev) => ({
+        ...prev,
+        shortTerm: [...prev.shortTerm, `Created custom node register: ${path}`]
+      }));
+    } catch (err) {
+      console.error('[SnowOS Client] Failed to add file:', err);
+    }
   };
 
-  const handleDeleteFile = (path: string) => {
-    setVirtualFiles((files) => files.filter(f => f.path !== path));
-    setMemoryCore((prev) => ({
-      ...prev,
-      shortTerm: [...prev.shortTerm, `De-registered node path: ${path}`]
-    }));
+  const handleDeleteFile = async (path: string) => {
+    try {
+      await fetch('/api/snow-agent/files/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path })
+      });
+      setMemoryCore((prev) => ({
+        ...prev,
+        shortTerm: [...prev.shortTerm, `De-registered node path: ${path}`]
+      }));
+    } catch (err) {
+      console.error('[SnowOS Client] Failed to delete file:', err);
+    }
   };
 
-  const handleUpdateFileContent = (path: string, content: string) => {
-    setVirtualFiles((files) =>
-      files.map((f) => (f.path === path ? { ...f, content, size: `${Math.ceil(content.length)} bytes`, updatedAt: new Date().toISOString().replace('T', ' ').slice(0, 19) } : f))
-    );
-    setMemoryCore((prev) => ({
-      ...prev,
-      shortTerm: [...prev.shortTerm, `Modified register buffers: ${path}`]
-    }));
+  const handleUpdateFileContent = async (path: string, content: string) => {
+    try {
+      await fetch('/api/snow-agent/files/write', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path, content })
+      });
+      setMemoryCore((prev) => ({
+        ...prev,
+        shortTerm: [...prev.shortTerm, `Modified register buffers: ${path}`]
+      }));
+    } catch (err) {
+      console.error('[SnowOS Client] Failed to update file content:', err);
+    }
   };
   
   const handleSynthesizeSpeech = async (text: string) => {
@@ -1009,6 +1206,7 @@ db_sync = true
                 correctionPhase={correctionPhase}
                 setCorrectionPhase={setCorrectionPhase}
                 subtaskProgress={subtaskProgress}
+                simplifiedMode={simplifiedMode}
               />
             )}
 
@@ -1021,6 +1219,7 @@ db_sync = true
                 setIndexedMemories={setIndexedMemories}
                 learningStats={learningStats}
                 setLearningStats={setLearningStats}
+                simplifiedMode={simplifiedMode}
               />
             )}
 
@@ -1039,21 +1238,17 @@ db_sync = true
         </div>
 
         {/* Small bottom system health strip */}
-        <footer className={`flex items-center justify-between text-[10px] select-none border px-4 py-2.5 rounded-xl transition-all duration-300 ${
-          simplifiedMode 
-            ? 'bg-white border-slate-205 text-slate-500 shadow-sm' 
-            : 'bg-zinc-950/40 border-zinc-805 text-zinc-500 font-mono'
-        }`}>
+        <footer className="flex items-center justify-between text-[10px] select-none border px-4 py-2.5 rounded-xl transition-all duration-300 bg-zinc-950 border-zinc-805 text-zinc-500 font-mono shadow-md">
           <div className="flex items-center space-x-2">
-            <span className={`w-1.5 h-1.5 rounded-full animate-pulse mr-1 ${simplifiedMode ? 'bg-emerald-500' : 'bg-cyan-500'}`} />
-            <span className={`font-bold tracking-wide ${simplifiedMode ? 'text-slate-600' : 'text-zinc-400 uppercase'}`}>
+            <span className="w-1.5 h-1.5 rounded-full animate-pulse mr-1 bg-cyan-500" />
+            <span className="font-bold tracking-wide text-zinc-400 uppercase">
               {simplifiedMode ? 'ASSISTANT STATUS: ONLINE & READY' : 'CORE SYSTEM STATUS: OPERATIONAL'}
             </span>
           </div>
           <div>
             {simplifiedMode 
               ? 'Powered by Gemini AI Companion • SnowOS Agent v1.2' 
-              : 'Powered by **Gemini-3.5-Flash** • SnowOS Secure Kernel Loop v1.2'
+              : 'Powered by Gemini-3.5-Flash • SnowOS Secure Kernel Loop v1.2'
             }
           </div>
         </footer>
