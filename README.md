@@ -1,20 +1,109 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# SnowOS: AI-Native Agent Operating System
 
-# Run and deploy your AI Studio app
+SnowOS is an AI-native agent operating system interface designed to translate natural language instructions into structured execution plans, system telemetry monitoring, and file-system synchronization.
 
-This contains everything you need to run your app locally.
+It operates using an online/offline dual model architecture, communicating with Google Gemini API when online and falling back to a local Ollama instance and native text-to-speech synthesis when offline.
 
-View your app in AI Studio: https://ai.studio/apps/88f57f5c-4218-4151-97ee-0e345ff9e48e
+---
 
-## Run Locally
+## Architecture Overview
 
-**Prerequisites:**  Node.js
+SnowOS is structured as a full-stack Node.js + React web application:
 
+- **Frontend (Vite / React / TypeScript / Tailwind CSS)**: An interactive operator dashboard featuring:
+  - **Nyx Terminal**: A custom shell for command execution and natural language task planning.
+  - **Virtual Workspace**: An in-browser file explorer synced in real-time with the local host filesystem.
+  - **Telemetry Dashboard**: Dynamic hardware resource metrics (CPU, memory, disk, network throughput).
+  - **Cognitive Memory Manager**: Visual interface for inspecting short-term, working, and long-term agent memory.
+- **Backend (Express / TypeScript / WebSockets / systeminformation)**: A local server that handles:
+  - Host telemetry scraping and WebSocket event routing.
+  - Filesystem CRUD operations synced to the physical `/workspace` directory.
+  - LLM and Text-to-Speech (TTS) integration with automated online-to-offline fallbacks.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+---
+
+## Core Features
+
+### 1. Dual-Mode Intelligence & TTS Fallbacks
+- **Online Mode**: Uses the `@google/genai` SDK to query Gemini models (supporting thinking levels, e.g., `gemini-3.1-pro-preview` and `gemini-3.5-flash`) and synthesize high-fidelity voice output via `gemini-3.1-flash-tts-preview`.
+- **Offline / Sandbox Mode**: Automatically falls back to a local Ollama instance (`OLLAMA_HOST`) and invokes native OS text-to-speech engines (Windows SAPI via PowerShell, macOS `say`, or Linux `espeak`).
+
+### 2. Physical File-System Synchronization
+- Automatically seeds and monitors the local `./workspace/` directory.
+- Exposes REST endpoints to list, write, and delete files.
+- Uses WebSockets to sync external modifications on the host back to the frontend workspace viewer immediately.
+
+### 3. Execution Safety & Auditing
+- Parsed LLM plans are graded by a security risk framework:
+  - **LOW**: File reads, helper logs, directory scanning (executed immediately).
+  - **MEDIUM**: NPM/Pip package installations, system services (executed with warning).
+  - **HIGH**: File deletions, folder wipes (requires operator authorization in UI).
+  - **CRITICAL**: Critial credential or system folder modification (blocked from execution).
+
+### 4. Hardware Telemetry Scraping
+- Integrates with the `systeminformation` npm package to poll host CPU load, active memory consumption, primary disk usage (`C:` or `/`), and active network throughput.
+
+---
+
+## Getting Started
+
+### Prerequisites
+- **Node.js** (v18+ recommended)
+- **Ollama** (optional, for local offline fallback support)
+  - Ensure Ollama is running and a chat model (e.g., `deepseek-coder` or similar) is pulled.
+
+### Installation
+
+1. Clone the repository and install the dependencies:
+   ```bash
+   npm install
+   ```
+
+2. Configure the environment variables. Copy `.env.example` to `.env` and populate the keys:
+   ```bash
+   # Create environment configuration
+   copy .env.example .env
+   ```
+   ```env
+   # .env
+   GEMINI_API_KEY="your-gemini-api-key"
+   OLLAMA_HOST="http://localhost:11434"
+   OLLAMA_MODEL="deepseek-coder"
+   PORT=3000
+   ```
+
+### Execution
+
+- **Development Mode**: Run Vite and the backend server concurrently in development mode using:
+  ```bash
+  npm run dev
+  ```
+- **Build & Production Mode**: Build the frontend bundle and compile the server code:
+  ```bash
+  npm run build
+  npm start
+  ```
+
+---
+
+## API & WebSocket Reference
+
+### HTTP API Endpoints
+
+| Endpoint | Method | Description |
+| :--- | :--- | :--- |
+| `/api/snow-agent/files` | `GET` | List all files recursively in the physical workspace. |
+| `/api/snow-agent/files/write` | `POST` | Write content to a specific relative file path. |
+| `/api/snow-agent/files/delete` | `POST` | Delete a file or directory from the workspace. |
+| `/api/snow-agent/metrics` | `GET` | Retrieve real-time CPU, RAM, Disk, and Network telemetry. |
+| `/api/snow-agent/chat` | `POST` | Route prompt requests to Gemini (or Ollama/sandbox fallback). |
+| `/api/snow-agent/tts` | `POST` | Synthesize speech from text using Gemini TTS (or SAPI/say/espeak). |
+| `/api/snow-agent/ai-operation` | `POST` | Perform automated code analysis or performance optimization. |
+
+### WebSocket Communication
+- **Server to Client**:
+  - `file_changed`: Dispatched when a file in the physical workspace is created or modified.
+  - `file_deleted`: Dispatched when a file is removed from the workspace.
+- **Client to Server**:
+  - `execute`: Submits shell directives generated by plans to run in the backend server container context.
+
